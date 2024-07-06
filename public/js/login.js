@@ -183,47 +183,56 @@ function displayError(message) {
 }
 
 
+function verifyOTP() {
+    const verifyButton = document.getElementById('verifyButton'); // Get the button element
+    verifyButton.disabled = true;
+    verifyButton.textContent = 'Verifying...';
+    const otp = document.getElementById('otp').value;
+    const code = document.getElementById('countryCode').value;
+    const phoneNumber = document.getElementById('phoneNumber').value.trim();
+    const phone =  code+phoneNumber
+    // console.log(otp,code,phone)
 
-app.post('/verifyOTP', async (req, res) => {
-  const { phone, otp, userData } = req.body;
-  try {
-      // Use await to get the verification result
-      const verification_check = await client.verify.v2.services(serviceSid)
-          .verificationChecks
-          .create({ to: phone, code: otp });
+    const userData = {
+        name: document.getElementById('name').value,
+        dob: document.getElementById('dob').value,
+        phone: phone,
+        pan: document.getElementById('pan').value
+    };
 
-      if (verification_check.status === 'approved') {
-          // let result = await User.exists({ phone: phone });
-          let result = await User.exists({ phone: phone,'cards': { $not: { $size: 0 } }  });
-          console.log("Already exist ", result);
+    fetch('/verifyOTP', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ phone, otp,userData })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            localStorage.setItem('token', data.token);
+            window.location.href = '/reward';
+        } else {
+            console.log(data.error)
+            if(data.error==='number already exist'){
+                window.location.href = '/rewardpoints'
+            }
+            verifyButton.disabled = false;
+            verifyButton.textContent = 'Verify';
+            let errorElement = document.getElementById('otpError'); 
+            if (!errorElement) { 
+              errorElement = document.createElement('p'); 
+              errorElement.id = 'otpError';  
+              document.getElementById('otp').parentNode.appendChild(errorElement); 
+            }
+        
+            // 2. Display the Error Message
+            errorElement.style.color = 'red';
+            errorElement.textContent = 'Invalid OTP';
+        }
+    });
+}
 
-          if (result != null){
-              console.log('Number already exists, responding with error');
-              return res.json({ valid: false, error: 'number already exist' });
-          }
-          try {
-              console.log("userdata",userData)
-              let user = await User.findOneAndUpdate(
-                  { phone }, 
-                  { $set: { userData } },  
-                  { upsert: true, new: true }
-              );
-              req.session.userData = { phone : phone ,...userData };
-              const token = generateToken({ phone });
-              res.cookie('token', token, { httpOnly: true, secure: true, sameSite: 'strict' });
-              res.json({ success: true });
-          } catch (error) {
-              console.error('Error saving user data to MongoDB:', error);
-              res.json({ success: false, error: 'Error saving user data' });
-          }
-      } else {
-          res.json({ success: false });
-      }
-  } catch (error) {
-      console.error("Error verifying OTP:", error);
-      res.json({ success: false, error: error.message });
-  }
-});
 
 
 function resendOTP() {
