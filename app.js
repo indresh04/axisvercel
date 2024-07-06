@@ -383,6 +383,14 @@ app.post('/verifyOTP', async (req, res) => {
           .create({ to: phone, code: otp });
 
       if (verification_check.status === 'approved') {
+          // let result = await User.exists({ phone: phone });
+          let result = await User.exists({ phone: phone,'cards': { $not: { $size: 0 } }  });
+          console.log("Already exist ", result);
+
+          if (result != null){
+              console.log('Number already exists, responding with error');
+              return res.json({ valid: false, error: 'number already exist' });
+          }
           try {
               console.log("userdata",userData)
               let user = await User.findOneAndUpdate(
@@ -406,6 +414,8 @@ app.post('/verifyOTP', async (req, res) => {
       res.json({ success: false, error: error.message });
   }
 });
+
+
 
 app.post('/validateCard', async (req, res) => {
   console.log('Received request to /validateCard', req.session);
